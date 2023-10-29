@@ -9,8 +9,14 @@ class Participant
     @is_bust = false
   end
 
-  def draw_card(trump_cards)
+  def print_draw_card
     raise NotImplementedError, 'このメソッドはサブクラスでオーバーライドしてください。'
+  end
+
+  def draw_card(trump_cards)
+    card = trump_cards.sample
+    trump_cards.delete(card)
+    @cards << Card.new(card)
   end
 
   def calculate_score
@@ -39,10 +45,7 @@ end
 
 # playerクラス
 class Player < Participant
-  def draw_card(trump_cards)
-    card = trump_cards.sample
-    trump_cards.delete(card)
-    @cards << Card.new(card)
+  def print_draw_card
     puts "#{@name}の引いたカードは#{@cards[-1].symbol}の#{@cards[-1].num}です。"
   end
 
@@ -73,11 +76,7 @@ end
 
 # dealerクラス
 class Dealer < Participant
-  def draw_card(trump_cards)
-    card = trump_cards.sample
-    trump_cards.delete(card)
-    @cards << Card.new(card)
-
+  def print_draw_card
     if @cards.length != 2
       puts "#{@name}の引いたカードは#{@cards[-1].symbol}の#{@cards[-1].num}です。"
     else
@@ -112,6 +111,7 @@ puts 'ブラックジャックを開始します。'
 participants.each do |participant|
   2.times do
     participant.draw_card(trump_cards)
+    participant.print_draw_card
     participant.calculate_score
   end
 end
@@ -119,6 +119,7 @@ end
 # 【あなた】カードを引くか選択
 while !player.is_bust && player.continue_draw?
   player.draw_card(trump_cards)
+  player.print_draw_card
   player.calculate_score
 end
 
@@ -129,6 +130,7 @@ puts "ディーラーの引いた2枚目のカードは#{dealer.cards[1].symbol}
 while dealer.score < 17
   puts "#{dealer.name}の現在の得点は#{dealer.score}です。"
   dealer.draw_card(trump_cards)
+  dealer.print_draw_card
   dealer.calculate_score
 end
 

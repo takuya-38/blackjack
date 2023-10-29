@@ -14,11 +14,23 @@ class Participant
   end
 
   def calculate_score
-    if ['J', 'Q', 'K'].include?(@cards[-1].num)
-      @score += 10
-    else
-      @score += @cards[-1].num
+    score = 0
+    ace_flag = false
+
+    @cards.each do |card|
+      if ['J', 'Q', 'K'].include?(card.num)
+        score += 10
+      elsif card.num == 'A'
+        score += 1
+        ace_flag = true
+      else
+        score += card.num
+      end
     end
+
+    score += 10 if ace_flag && score <= 11
+    @score = score
+
     @is_bust = true if @score >= 22
   end
 
@@ -51,7 +63,7 @@ class Player < Participant
 
     if @is_bust && dealer.is_bust || @score == dealer.score
       puts '引き分けです！'
-    elsif @score > dealer.score || dealer.is_bust
+    elsif dealer.is_bust || @score > dealer.score && !@is_bust
       puts 'あなたの勝ちです！'
     else
       puts 'ティーラーの勝ちです！'
@@ -82,7 +94,6 @@ class Card
   end
 
   attr_reader :symbol, :num
-  attr_accessor :visible
 end
 
 # あなたとディーラーとトランプを作成
@@ -91,7 +102,7 @@ dealer = Dealer.new(:ディーラー)
 participants = [player, dealer]
 
 symbol = ['ハート', 'ダイヤ', 'クローバー', 'スペード']
-trump_cards = symbol.product([*1..10, 'J', 'Q', 'K'])
+trump_cards = symbol.product([*2..10, 'A', 'J', 'Q', 'K'])
 
 # ---ゲーム開始------------------------------------------------
 puts 'ブラックジャックを開始します。'
@@ -106,7 +117,7 @@ participants.each do |participant|
 end
 
 # 【あなた】カードを引くか選択
-while player.continue_draw? && !player.is_bust
+while !player.is_bust && player.continue_draw?
   player.draw_card(trump_cards)
   player.calculate_score
 end

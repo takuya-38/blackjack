@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
-# Participantクラス
 class Participant
   def initialize(name)
     @name = name
     @cards = []
     @score = 0
+    @is_set = false
     @is_bust = false
+    @is_surrender = false
   end
 
   def draw_card(trump_cards)
@@ -40,19 +41,10 @@ class Participant
     @is_bust = true if @score >= 22
   end
 
-  attr_reader :name, :cards, :score, :is_bust
+  attr_reader :name, :cards, :score, :is_set, :is_bust, :is_surrender
 end
 
-# playerクラス
 class Player < Participant
-  def initialize(name)
-    @name = name
-    @cards = []
-    @score = 0
-    @is_bust = false
-    # @result = ''
-  end
-
   def print_draw_card
     puts "#{@name}の引いたカードは#{@cards[-1].symbol}の#{@cards[-1].num}です。"
   end
@@ -83,15 +75,46 @@ module Automation
 end
 
 class PlayerManual < Player
-  def continue_draw?
+  def hit?
     puts "#{@name}の現在の得点は#{@score}です。カードを引きますか？（Y/N）"
-    response = gets.chomp
 
+    response = gets.chomp
     if response == 'Y'
       true
-    elsif response == 'N'
+    else
+      @is_set = true
       false
     end
+  end
+
+  def select_double_down(trump_cards)
+    puts "#{@name}の現在の得点は#{@score}です。ダブルダウンしますか？（Y/N）"
+
+    response = gets.chomp
+    if response == 'Y'
+      self.draw_card(trump_cards)
+      self.print_draw_card
+      self.calculate_score
+      @is_set = true
+    end
+  end
+
+  def surrender?
+    puts "#{@name}の現在の得点は#{@score}です。サレンダーしますか？（Y/N）"
+
+    response = gets.chomp
+    if response == 'Y'
+      @is_surrender = true
+    else
+      false
+    end
+  end
+
+  def split?
+    puts "#{@name}の現在の得点は#{@score}です。スプリットしますか？（Y/N）"
+
+    response = gets.chomp
+    @is_split = true if response == 'Y'
   end
 end
 
@@ -99,7 +122,6 @@ class PlayerAuto < Player
   include Automation
 end
 
-# dealerクラス
 class Dealer < Participant
   def print_draw_card
     if @cards.length != 2
@@ -115,6 +137,11 @@ class Dealer < Participant
     end
 
     players.each do |player|
+      if player.is_surrender
+        puts "#{player.name}の負けです！"
+        next
+      end
+
       if player.is_bust && @is_bust || player.score == @score
         puts "#{player.name}は引き分けです！"
       elsif @is_bust || player.score > @score && !player.is_bust
@@ -128,14 +155,24 @@ class Dealer < Participant
   include Automation
 end
 
-# cardクラス
 class Card
   def initialize(card)
     @symbol = card[0]
     @num = card[1]
+    calculate_num
   end
 
-  attr_reader :symbol, :num
+  private def calculate_num
+    if ['J', 'Q', 'K'].include?(@num)
+      @cal_num = 10
+    elsif @num == 'A'
+      @cal_num = 1
+    else
+      @cal_num = @num
+    end
+  end
+
+  attr_reader :symbol, :num, :cal_num
 end
 
 # あなたとディーラーとトランプを作成
@@ -152,8 +189,6 @@ trump_cards = symbol.product([*2..10, 'A', 'J', 'Q', 'K'])
 # ---ゲーム開始------------------------------------------------
 puts 'ブラックジャックを開始します。'
 
-# 【あなた】カードを2枚引く、引いたカードを2枚表示
-# 【ディーラー】カードを2枚引く、引いたカードを1枚表示、1枚隠す
 (players + [dealer]).each do |participant|
   2.times do
     participant.draw_card(trump_cards)
@@ -162,20 +197,40 @@ puts 'ブラックジャックを開始します。'
   participant.calculate_score
 end
 
-# 【あなた】カードを引くか選択
-while !player.is_bust && player.continue_draw?
-  player.draw_card(trump_cards)
-  player.print_draw_card
-  player.calculate_score
+if !player.surrender?
+  player.select_double_down(trump_cards)
+
+  if player.cards[0].cal_num == player.cards[1].cal_num && player.split?
+
+    player_split = PlayerManual.new(:あなた_スプリット)
+    players.insert(1, player_split)
+
+    player_split.cards << player.cards.pop
+    player.calculate_score
+    player_split.calculate_score
+
+    while !player_split.is_set && !player_split.is_bust
+      if player_split.hit?
+        player_split.draw_card(trump_cards)
+        player_split.print_draw_card
+        player_split.calculate_score
+      end
+    end
+  end
+
+  while !player.is_set && !player.is_bust && !player.is_surrender
+    if player.hit?
+      player.draw_card(trump_cards)
+      player.print_draw_card
+      player.calculate_score
+    end
+  end
 end
 
-# CPUが引く
 cpu1.auto_draw(trump_cards)
 cpu2.auto_draw(trump_cards)
 
-# ディーラーの2枚目のカード公開/【ディーラー】カードを17以上になるまで引く
 puts "ディーラーの引いた2枚目のカードは#{dealer.cards[1].symbol}の#{dealer.cards[1].num}でした。"
 dealer.auto_draw(trump_cards)
-
 dealer.print_result(players)
 puts 'ブラックジャックを終了します。'
